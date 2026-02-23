@@ -1,0 +1,17 @@
+[package]
+name = "assert-env"
+version = "0.1.0"
+edition = "2024"
+authors = ["Guy Or <guydude1@gmail.com>"]
+description = "A simple runtime assertion utility for environment variables."
+repository = "https://github.com/guyo13/assert-env.git"
+license = "BSD-3-Clause"
+keywords = ["env", "assertion", "runtime", "config", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    "/.github",
+    "/test_*.toml",
+    "AssertEnv.toml"
+]
+
+[dependencies]
