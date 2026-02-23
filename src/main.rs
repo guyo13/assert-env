@@ -11,6 +11,7 @@ enum VarType {
     Str,
     Int,
     Float,
+    Bool,
     Any,
 }
 
@@ -20,6 +21,7 @@ impl VarType {
             "str" => Some(VarType::Str),
             "int" => Some(VarType::Int),
             "float" => Some(VarType::Float),
+            "bool" => Some(VarType::Bool),
             "any" => Some(VarType::Any),
             _ => None,
         }
@@ -30,6 +32,7 @@ impl VarType {
             VarType::Str => !value.is_empty(),
             VarType::Int => value.parse::<i64>().is_ok(),
             VarType::Float => value.parse::<f64>().is_ok(),
+            VarType::Bool => value.parse::<bool>().is_ok(),
             VarType::Any => true,
         }
     }
@@ -39,6 +42,7 @@ impl VarType {
             VarType::Str => "str",
             VarType::Int => "int",
             VarType::Float => "float",
+            VarType::Bool => "bool",
             VarType::Any => "any",
         }
     }
@@ -76,7 +80,7 @@ fn parse_config(content: &str) -> Result<Config, String> {
 
         if let Some(pos) = line.find('=') {
             let key = line[..pos].trim().to_string();
-            let val_str = line[pos + 1..].trim();
+            let val_str = line[pos + 1..].trim().trim_matches('"').trim_matches('\'');
             let var_type = VarType::from_str(val_str).ok_or_else(|| {
                 format!(
                     "Line {}: Invalid type '{}' for key '{}'",
@@ -106,6 +110,46 @@ fn parse_config(content: &str) -> Result<Config, String> {
     }
 
     Ok(Config { required, optional })
+}
+
+fn split_args(s: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current_arg = String::new();
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+
+    for c in s.chars() {
+        if in_single_quote {
+            if c == '\'' {
+                in_single_quote = false;
+            } else {
+                current_arg.push(c);
+            }
+        } else if in_double_quote {
+            if c == '"' {
+                in_double_quote = false;
+            } else {
+                current_arg.push(c);
+            }
+        } else if c == '\'' {
+            in_single_quote = true;
+        } else if c == '"' {
+            in_double_quote = true;
+        } else if c.is_whitespace() {
+            if !current_arg.is_empty() {
+                args.push(current_arg.clone());
+                current_arg.clear();
+            }
+        } else {
+            current_arg.push(c);
+        }
+    }
+
+    if !current_arg.is_empty() {
+        args.push(current_arg);
+    }
+
+    args
 }
 
 fn main() {
@@ -205,10 +249,7 @@ fn main() {
 
     // Execute the command
     let (cmd_bin, cmd_args) = if args.len() - cmd_start_idx == 1 {
-        let parts: Vec<String> = args[cmd_start_idx]
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
+        let parts = split_args(&args[cmd_start_idx]);
         if parts.is_empty() {
             eprintln!("Error: Empty command provided");
             exit(1);
@@ -259,12 +300,14 @@ KEY2 = int
 [optional]
   KEY3=float
 KEY4=any
+KEY5=bool
 ";
         let config = parse_config(content).unwrap();
         assert_eq!(config.required.get("KEY1"), Some(&VarType::Str));
         assert_eq!(config.required.get("KEY2"), Some(&VarType::Int));
         assert_eq!(config.optional.get("KEY3"), Some(&VarType::Float));
         assert_eq!(config.optional.get("KEY4"), Some(&VarType::Any));
+        assert_eq!(config.optional.get("KEY5"), Some(&VarType::Bool));
     }
 
     #[test]
@@ -275,7 +318,35 @@ KEY4=any
         assert!(!VarType::Int.validate("abc"));
         assert!(VarType::Float.validate("1.23"));
         assert!(!VarType::Float.validate("abc"));
+        assert!(VarType::Bool.validate("true"));
+        assert!(VarType::Bool.validate("false"));
+        assert!(!VarType::Bool.validate("1"));
+        assert!(!VarType::Bool.validate("yes"));
         assert!(VarType::Any.validate(""));
         assert!(VarType::Any.validate("anything"));
+    }
+
+    #[test]
+    fn test_parse_config_with_quotes() {
+        let content = r#"
+[required]
+DB_HOST = "str"
+DB_PORT = 'int'
+"#;
+        let config = parse_config(content);
+        assert!(config.is_ok(), "Config parsing failed for quoted values: {:?}", config.err());
+        let config = config.unwrap();
+        assert_eq!(config.required.get("DB_HOST"), Some(&VarType::Str));
+        assert_eq!(config.required.get("DB_PORT"), Some(&VarType::Int));
+    }
+
+    #[test]
+    fn test_split_args() {
+        assert_eq!(split_args("echo hello"), vec!["echo", "hello"]);
+        assert_eq!(split_args("echo 'hello world'"), vec!["echo", "hello world"]);
+        assert_eq!(split_args("echo \"hello world\""), vec!["echo", "hello world"]);
+        assert_eq!(split_args("echo \"hello\"world"), vec!["echo", "helloworld"]);
+        assert_eq!(split_args("echo hello   world"), vec!["echo", "hello", "world"]);
+        assert_eq!(split_args(""), Vec::<String>::new());
     }
 }
