@@ -334,7 +334,11 @@ DB_HOST = "str"
 DB_PORT = 'int'
 "#;
         let config = parse_config(content);
-        assert!(config.is_ok(), "Config parsing failed for quoted values: {:?}", config.err());
+        assert!(
+            config.is_ok(),
+            "Config parsing failed for quoted values: {:?}",
+            config.err()
+        );
         let config = config.unwrap();
         assert_eq!(config.required.get("DB_HOST"), Some(&VarType::Str));
         assert_eq!(config.required.get("DB_PORT"), Some(&VarType::Int));
@@ -343,10 +347,22 @@ DB_PORT = 'int'
     #[test]
     fn test_split_args() {
         assert_eq!(split_args("echo hello"), vec!["echo", "hello"]);
-        assert_eq!(split_args("echo 'hello world'"), vec!["echo", "hello world"]);
-        assert_eq!(split_args("echo \"hello world\""), vec!["echo", "hello world"]);
-        assert_eq!(split_args("echo \"hello\"world"), vec!["echo", "helloworld"]);
-        assert_eq!(split_args("echo hello   world"), vec!["echo", "hello", "world"]);
+        assert_eq!(
+            split_args("echo 'hello world'"),
+            vec!["echo", "hello world"]
+        );
+        assert_eq!(
+            split_args("echo \"hello world\""),
+            vec!["echo", "hello world"]
+        );
+        assert_eq!(
+            split_args("echo \"hello\"world"),
+            vec!["echo", "helloworld"]
+        );
+        assert_eq!(
+            split_args("echo hello   world"),
+            vec!["echo", "hello", "world"]
+        );
         assert_eq!(split_args(""), Vec::<String>::new());
     }
 }
