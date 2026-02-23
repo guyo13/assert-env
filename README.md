@@ -37,6 +37,18 @@ DEBUG = "any"
 
 ## Installation
 
+### From Crates.io
+
+The easiest way to install `assert-env` is from [crates.io](https://crates.io):
+
+```bash
+cargo install assert-env
+```
+
+### From Source
+
+If you want to build and install it from the cloned repository, you can use the `--path` flag. This command compiles the local source code and places the resulting binary in your Cargo binary directory (usually `~/.cargo/bin`):
+
 ```bash
 cargo install --path .
 ```
