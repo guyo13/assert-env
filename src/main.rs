@@ -16,7 +16,8 @@ enum VarType {
 
 impl VarType {
     fn from_str(s: &str) -> Option<Self> {
-        match s.trim() {
+        let clean = s.trim().trim_matches(|c| c == '"' || c == '\'');
+        match clean {
             "str" => Some(VarType::Str),
             "int" => Some(VarType::Int),
             "float" => Some(VarType::Float),
@@ -132,7 +133,7 @@ fn main() {
     let mut cmd_start_idx = 1;
 
     if args[1] == "-f" || args[1] == "--file" {
-        if args.len() < 4 {
+        if args.len() < 3 {
             eprintln!("Error: Missing path after {} flag", args[1]);
             exit(1);
         }
@@ -184,15 +185,15 @@ fn main() {
     }
 
     for (key, var_type) in &config.optional {
-        if let Ok(val) = env::var(key) {
-            if !var_type.validate(&val) {
-                errors.push(format!(
-                    "Optional variable '{}' has invalid value '{}' (expected {})",
-                    key,
-                    val,
-                    var_type.as_str()
-                ));
-            }
+        if let Ok(val) = env::var(key)
+            && !var_type.validate(&val)
+        {
+            errors.push(format!(
+                "Optional variable '{}' has invalid value '{}' (expected {})",
+                key,
+                val,
+                var_type.as_str()
+            ));
         }
     }
 
@@ -250,11 +251,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_config() {
+    fn test_from_str() {
+        assert_eq!(VarType::from_str("str"), Some(VarType::Str));
+        assert_eq!(VarType::from_str("\"str\""), Some(VarType::Str));
+        assert_eq!(VarType::from_str("'int'"), Some(VarType::Int));
+        assert_eq!(VarType::from_str("  float  "), Some(VarType::Float));
+        assert_eq!(VarType::from_str("\"any\""), Some(VarType::Any));
+        assert_eq!(VarType::from_str("invalid"), None);
+        assert_eq!(VarType::from_str(""), None);
+    }
+
+    #[test]
+    fn test_parse_config_valid() {
         let content = "
 [required]
-KEY1=str  # some comment
-KEY2 = int
+KEY1=\"str\"  # some comment
+KEY2 = 'int'
 
 [optional]
   KEY3=float
@@ -268,13 +280,46 @@ KEY4=any
     }
 
     #[test]
+    fn test_parse_config_errors() {
+        assert!(
+            parse_config("KEY=str").is_err(),
+            "Assignment without section should fail"
+        );
+        assert!(
+            parse_config("[required]\nKEY=invalid").is_err(),
+            "Invalid type should fail"
+        );
+        assert!(
+            parse_config("[optional]\nINVALID_LINE").is_err(),
+            "Missing equals sign should fail"
+        );
+        assert!(
+            parse_config("[unknown]\nKEY=str").is_err(),
+            "Assignment in unknown section should fail"
+        );
+    }
+
+    #[test]
     fn test_validate() {
+        // String
         assert!(VarType::Str.validate("hello"));
         assert!(!VarType::Str.validate(""));
+
+        // Integer
         assert!(VarType::Int.validate("123"));
+        assert!(VarType::Int.validate("-123"));
+        assert!(VarType::Int.validate("0"));
+        assert!(!VarType::Int.validate("12.3")); // Should fail since it's a float
         assert!(!VarType::Int.validate("abc"));
+
+        // Float
         assert!(VarType::Float.validate("1.23"));
+        assert!(VarType::Float.validate("-1.23"));
+        assert!(VarType::Float.validate("0.0"));
+        assert!(VarType::Float.validate("123")); // Valid float
         assert!(!VarType::Float.validate("abc"));
+
+        // Any
         assert!(VarType::Any.validate(""));
         assert!(VarType::Any.validate("anything"));
     }
