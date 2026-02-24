@@ -6,16 +6,26 @@ use std::process::{Command, exit};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
+/// Represents the expected type of an environment variable.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum VarType {
+    /// A string value (non-empty).
     Str,
+    /// An integer value.
     Int,
+    /// A floating-point value.
     Float,
+    /// A boolean value ("true" or "false", case-insensitive).
     Bool,
+    /// Any value (including empty strings).
     Any,
 }
 
 impl VarType {
+    /// Parses a string slice into a `VarType`.
+    ///
+    /// Accepts "str", "int", "float", "bool", or "any".
+    /// Quotes around the type name are stripped.
     fn from_str(s: &str) -> Option<Self> {
         let clean = s.trim().trim_matches(|c| c == '"' || c == '\'');
         match clean {
@@ -28,6 +38,13 @@ impl VarType {
         }
     }
 
+    /// Validates a value string against the type rules.
+    ///
+    /// - `Str`: Must not be empty.
+    /// - `Int`: Must be a valid 64-bit integer.
+    /// - `Float`: Must be a valid 64-bit float.
+    /// - `Bool`: Must be "true" or "false" (case-insensitive).
+    /// - `Any`: Always valid.
     fn validate(&self, value: &str) -> bool {
         match self {
             VarType::Str => !value.is_empty(),
@@ -38,6 +55,7 @@ impl VarType {
         }
     }
 
+    /// Returns the string representation of the type.
     fn as_str(&self) -> &'static str {
         match self {
             VarType::Str => "str",
@@ -49,11 +67,20 @@ impl VarType {
     }
 }
 
+/// Holds the parsed configuration for environment variables.
 struct Config {
+    /// Variables that must exist and be valid.
     required: HashMap<String, VarType>,
+    /// Variables that are validated only if they exist.
     optional: HashMap<String, VarType>,
 }
 
+/// Parses the configuration content (TOML-like format).
+///
+/// Supports `[required]` and `[optional]` sections.
+/// Lines starting with `#` are comments.
+/// Key-value pairs are separated by `=`.
+/// Values can be quoted or unquoted.
 fn parse_config(content: &str) -> Result<Config, String> {
     let mut required = HashMap::new();
     let mut optional = HashMap::new();
@@ -115,6 +142,9 @@ fn parse_config(content: &str) -> Result<Config, String> {
     Ok(Config { required, optional })
 }
 
+/// Splits a command string into arguments, respecting quotes.
+///
+/// Supports single (`'`) and double (`"`) quotes.
 fn split_args(s: &str) -> Vec<String> {
     let mut args = Vec::new();
     let mut current_arg = String::new();
@@ -155,6 +185,12 @@ fn split_args(s: &str) -> Vec<String> {
     args
 }
 
+/// The main entry point.
+///
+/// 1. Parses command-line arguments.
+/// 2. Reads the configuration file (`AssertEnv.toml` by default).
+/// 3. Validates environment variables against the configuration.
+/// 4. Executes the specified command if validation passes.
 fn main() {
     let args: Vec<String> = env::args().collect();
 
