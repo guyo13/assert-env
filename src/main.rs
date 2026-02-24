@@ -81,7 +81,9 @@ fn parse_config(content: &str) -> Result<Config, String> {
 
         if let Some(pos) = line.find('=') {
             let key = line[..pos].trim().to_string();
-            let val_str = line[pos + 1..].trim().trim_matches('"').trim_matches('\'');
+            let val_str = line[pos + 1..]
+                .trim()
+                .trim_matches(|c| c == '"' || c == '\'');
             let var_type = VarType::from_str(val_str).ok_or_else(|| {
                 format!(
                     "Line {}: Invalid type '{}' for key '{}'",
@@ -377,6 +379,8 @@ KEY5=bool
 [required]
 DB_HOST = "str"
 DB_PORT = 'int'
+DB_USER = "'any'"
+DB_PASS = '"any"'
 "#;
         let config = parse_config(content);
         assert!(
@@ -387,6 +391,8 @@ DB_PORT = 'int'
         let config = config.unwrap();
         assert_eq!(config.required.get("DB_HOST"), Some(&VarType::Str));
         assert_eq!(config.required.get("DB_PORT"), Some(&VarType::Int));
+        assert_eq!(config.required.get("DB_USER"), Some(&VarType::Any));
+        assert_eq!(config.required.get("DB_PASS"), Some(&VarType::Any));
     }
 
     #[test]
@@ -409,6 +415,15 @@ DB_PORT = 'int'
             vec!["echo", "hello", "world"]
         );
         assert_eq!(split_args(""), Vec::<String>::new());
+        assert_eq!(
+            split_args("echo \"hello 'world'\""),
+            vec!["echo", "hello 'world'"]
+        );
+        assert_eq!(
+            split_args("echo 'hello \"world\"'"),
+            vec!["echo", "hello \"world\""]
+        );
+        assert_eq!(split_args("   echo   hello   "), vec!["echo", "hello"]);
     }
 }
 
