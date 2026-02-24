@@ -5,7 +5,8 @@ A lean, zero-dependency Rust utility for runtime environment variable assertions
 ## Features
 
 - **Validation**: Ensure environment variables exist and match expected types.
-- **Types**: Supports `str`, `int`, `float`, and `any`.
+- **Types**: Supports `str`, `int`, `float`, `bool`, and `any`.
+  - `bool` values must be "true" or "false" (case-insensitive).
 - **Lean**: No external crates, uses only the Rust standard library.
 - **Transparent**: On Unix, replaces itself with the target process via `exec`.
 
