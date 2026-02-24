@@ -343,6 +343,26 @@ KEY5=bool
     }
 
     #[test]
+    fn test_parse_config_errors() {
+        assert!(
+            parse_config("KEY=str").is_err(),
+            "Assignment without section should fail"
+        );
+        assert!(
+            parse_config("[required]\nKEY=invalid").is_err(),
+            "Invalid type should fail"
+        );
+        assert!(
+            parse_config("[optional]\nINVALID_LINE").is_err(),
+            "Missing equals sign should fail"
+        );
+        assert!(
+            parse_config("[unknown]\nKEY=str").is_err(),
+            "Assignment in unknown section should fail"
+        );
+    }
+
+    #[test]
     fn test_validate() {
         // String
         assert!(VarType::Str.validate("hello"));
