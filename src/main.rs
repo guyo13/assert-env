@@ -426,5 +426,3 @@ DB_PASS = '"any"'
         assert_eq!(split_args("   echo   hello   "), vec!["echo", "hello"]);
     }
 }
-
-// This comment ensures a new commit is pushed to re-trigger CI checks
